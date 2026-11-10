@@ -8,7 +8,7 @@ function demo() { App.newScenario('financial', 3500); S.st.company = 'Acme Bank'
 async function unlock(code) {
   App.setCode(code);
   try { await App.api({ endpoint: 'models' }); } catch (e) { if (!/Access code/.test(e.message)) { $('lockErr').hidden = false; $('lockErr').textContent = e.message; } return; }
-  $('lock').hidden = true; await App.loadModels(); if (!seen()) { $('intro').hidden = false; mark(); }
+  $('lock').hidden = true; App.loadModels(); if (!seen()) { $('intro').hidden = false; mark(); }
 }
 function start() {
   App.newScenario('financial', 1000); App.bindSteps(); App.recompute(); App.goStep(1); App.setMode('internal');
