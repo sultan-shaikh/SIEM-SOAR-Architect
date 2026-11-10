@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="robots" content="noindex,nofollow">
+<title>Sentinel Architect</title>
+<link rel="stylesheet" href="assets/styles.css">
+<script src="assets/vendor/purify.min.js" defer></script>
+<script src="assets/vendor/marked.min.js" defer></script>
+<script src="assets/vendor/pptxgen.bundle.js" defer></script>
+<script src="assets/js/core.js" defer></script>
+<script src="assets/js/app.js" defer></script>
+<script src="assets/js/steps.js" defer></script>
+<script src="assets/js/results.js" defer></script>
+<script src="assets/js/export.js" defer></script>
+<script src="assets/js/boot.js" defer></script>
+</head>
+<body>
+
+<div id="lock" class="modal small noprint" hidden>
+  <form id="lockForm" class="card">
+    <h2>Access required</h2>
+    <p class="muted" style="margin:0">Enter your access code to use the tool.</p>
+    <input id="lockInput" type="password" autocomplete="current-password" placeholder="Access code" required>
+    <p id="lockErr" class="err" hidden style="margin:0"></p>
+    <button class="btn dark" type="submit">Unlock</button>
+  </form>
+</div>
+
+<div id="intro" class="modal noprint" hidden>
+  <div class="card">
+    <div class="center">
+      <div class="logo big"><i></i><i></i><i></i><i></i></div>
+      <h1 style="font-size:26px;margin:8px 0 4px">Sentinel Architect</h1>
+      <p class="muted" style="margin:0">Estimate what Microsoft Sentinel will really cost, and what a managed service looks like, in a conversation with your customer.</p>
+    </div>
+    <div class="cards4">
+      <div><b>1 · Describe</b><span>Pick the industry and size. We fill in a typical estate.</span></div>
+      <div><b>2 · Adjust</b><span>Tune the environment and log sources together with the customer.</span></div>
+      <div><b>3 · Simulate</b><span>See a likely range, not one number, and try what-ifs live.</span></div>
+      <div><b>4 · Share</b><span>Customer-ready deck, PDF and CSV.</span></div>
+    </div>
+    <div class="grid g2">
+      <button id="introStart" class="btn dark big" type="button">Start a new estimate</button>
+      <button id="introDemo" class="btn big" type="button">Load an example</button>
+    </div>
+    <p class="tiny muted center" style="margin:14px 0 0">All figures are <b>indicative</b>. Log volumes are our industry estimates and prices come from the rate card; replace both with real data to firm them up.</p>
+  </div>
+</div>
+
+<nav class="nav noprint">
+  <div class="in">
+    <div class="brand"><span class="logo"><i></i><i></i><i></i><i></i></span><span class="bt">Sentinel Architect</span><span class="badge">SIEM &amp; SOAR estimator</span></div>
+    <div class="row">
+      <label class="navsel" title="AI model used for the optional written summary and quick-fill"><span>AI</span><select id="modelSelector" disabled><option>loading…</option></select></label>
+      <button id="btnMode" class="navbtn" type="button" title="Customer view hides internal assumptions, margins and the rate card">🔧 Internal view</button>
+      <button id="btnSave" class="navbtn" type="button">⬇ Save</button>
+      <label class="navbtn" for="fileLoad" style="cursor:pointer">⬆ Open</label><input id="fileLoad" type="file" accept=".json" hidden>
+      <button id="introBtn" class="navbtn" type="button">?</button>
+      <button id="lockBtn" class="navbtn" type="button">🔒</button>
+    </div>
+  </div>
+  <div id="modeBanner" class="modebanner" hidden>Customer view: internal assumptions, margins and the rate card are hidden.</div>
+</nav>
+
+<div class="live noprint" id="live">
+  <div class="in">
+    <div class="lv"><span>Estimated data</span><b id="lvGb">–</b><small id="lvGbR"></small></div>
+    <div class="lv"><span>Microsoft Sentinel / month</span><b id="lvCost">–</b><small id="lvCostR"></small></div>
+    <div class="lv"><span>Best-fit commitment</span><b id="lvTier">–</b><small id="lvTierR"></small></div>
+    <div class="lv" id="lvSvcBox"><span>Managed service / month</span><b id="lvSvc">–</b><small id="lvSvcR"></small></div>
+    <div class="lv flag"><span id="lvFlag" class="flagpill">Indicative</span></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="stepper noprint" id="stepper" role="tablist">
+    <button type="button" data-step="1" class="on"><i>1</i>Customer</button>
+    <button type="button" data-step="2"><i>2</i>Environment</button>
+    <button type="button" data-step="3"><i>3</i>Log sources</button>
+    <button type="button" data-step="4"><i>4</i>Automation &amp; service</button>
+    <button type="button" data-step="5"><i>5</i>Results</button>
+  </div>
+  <div id="error" class="errbox" hidden></div>
+  <section class="panel" id="p1"></section>
+  <section class="panel" id="p2" hidden></section>
+  <section class="panel" id="p3" hidden></section>
+  <section class="panel" id="p4" hidden></section>
+  <section class="panel" id="p5" hidden></section>
+  <p class="tiny muted center noprint" style="margin:30px 0">Sentinel Architect gives indicative estimates only. Microsoft prices, free-ingestion rules and product tiers change; check current terms before quoting.</p>
+</div>
+</body>
+</html>
