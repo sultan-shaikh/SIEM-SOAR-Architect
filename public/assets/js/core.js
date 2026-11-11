@@ -20,7 +20,34 @@ function defaultRates() {
     { id: 'LAKE_INGEST_GB', desc: 'Sentinel data lake ingestion', unit: 'GB', price: 0.04 },
     { id: 'LAKE_STORE_GB_MONTH', desc: 'Sentinel data lake storage', unit: 'GB-month', price: 0.02 },
     { id: 'RETENTION_GB_MONTH', desc: 'Analytics retention beyond the included period', unit: 'GB-month', price: 0.08 },
-    { id: 'LOGICAPP_ACTION', desc: 'Logic Apps (SOAR playbook) action execution', unit: 'action', price: 0.00002 }
+    { id: 'LOGICAPP_ACTION', desc: 'Logic Apps (SOAR playbook) action execution', unit: 'action', price: 0.00002 },
+    { id: 'MS_RESALE_UPLIFT', desc: 'Resale uplift on Microsoft consumption (0.08 = +8%) [PLACEHOLDER]', unit: 'ratio', price: 0.08 },
+    { id: 'CAP_OVERAGE_UPLIFT', desc: 'Uplift on overage above a cap when billed (0.10 = +10%) [PLACEHOLDER]', unit: 'ratio', price: 0.10 },
+    { id: 'PKG_FOUNDATION_MONTH', desc: 'Package: Foundation, 24x7 monthly fee [PLACEHOLDER]', unit: 'month', price: 4500 },
+    { id: 'PKG_ADVANCED_MONTH', desc: 'Package: Advanced, 24x7 monthly fee [PLACEHOLDER]', unit: 'month', price: 9500 },
+    { id: 'PKG_PREMIUM_MONTH', desc: 'Package: Premium, 24x7 monthly fee [PLACEHOLDER]', unit: 'month', price: 16000 },
+    { id: 'PKG_FOUNDATION_SRC', desc: 'Foundation: log sources included', unit: 'sources', price: 8 },
+    { id: 'PKG_ADVANCED_SRC', desc: 'Advanced: log sources included', unit: 'sources', price: 15 },
+    { id: 'PKG_PREMIUM_SRC', desc: 'Premium: log sources included', unit: 'sources', price: 25 },
+    { id: 'PKG_FOUNDATION_GB', desc: 'Foundation: monitored GB/day included', unit: 'GB/day', price: 50 },
+    { id: 'PKG_ADVANCED_GB', desc: 'Advanced: monitored GB/day included', unit: 'GB/day', price: 100 },
+    { id: 'PKG_PREMIUM_GB', desc: 'Premium: monitored GB/day included', unit: 'GB/day', price: 200 },
+    { id: 'PKG_FOUNDATION_PB', desc: 'Foundation: automation playbooks included', unit: 'playbooks', price: 2 },
+    { id: 'PKG_ADVANCED_PB', desc: 'Advanced: automation playbooks included', unit: 'playbooks', price: 6 },
+    { id: 'PKG_PREMIUM_PB', desc: 'Premium: automation playbooks included', unit: 'playbooks', price: 12 },
+    { id: 'COV_MULT_8X5', desc: 'Service price multiplier for business-hours cover (24x7 = 1)', unit: 'ratio', price: 0.55 },
+    { id: 'COV_MULT_12X5', desc: 'Service price multiplier for extended-hours cover (24x7 = 1)', unit: 'ratio', price: 0.75 },
+    { id: 'PERGB_SVC_MONTH', desc: 'Per-GB model: monthly fee per monitored GB/day (Foundation basis) [PLACEHOLDER]', unit: 'GB/day-month', price: 15 },
+    { id: 'PERSRC_SVC_MONTH', desc: 'Per-source model: monthly fee per log source (Foundation basis) [PLACEHOLDER]', unit: 'source-month', price: 200 },
+    { id: 'SVC_MIN_MONTH', desc: 'Per-GB / per-source models: minimum monthly fee (Foundation basis)', unit: 'month', price: 3000 },
+    { id: 'MIX_SRC_MONTH', desc: 'Mixed model: monthly fee per extra source above the package (Foundation basis)', unit: 'source-month', price: 150 },
+    { id: 'MIX_GB_MONTH', desc: 'Mixed model: monthly fee per extra GB/day above the package (Foundation basis)', unit: 'GB/day-month', price: 10 },
+    { id: 'ONB_BASE', desc: 'One-off onboarding: base fee [PLACEHOLDER]', unit: 'one-off', price: 6000 },
+    { id: 'ONB_PER_SOURCE', desc: 'One-off onboarding: per log source connected and tuned', unit: 'one-off', price: 750 },
+    { id: 'PLAYBOOK_BUILD', desc: 'One-off: each automation playbook above those included', unit: 'one-off', price: 900 },
+    { id: 'TERM_DISC_1Y', desc: 'Service fee discount for a 1-year term (0.05 = 5%)', unit: 'ratio', price: 0 },
+    { id: 'TERM_DISC_3Y', desc: 'Service fee discount for a 3-year term', unit: 'ratio', price: 0.05 },
+    { id: 'TERM_DISC_5Y', desc: 'Service fee discount for a 5-year term', unit: 'ratio', price: 0.08 }
   ];
   return r;
 }
@@ -166,22 +193,32 @@ function defaultState(vk, seats) {
   const soar = {}; PLAYBOOKS.forEach((p) => { soar[p.id] = p.on; });
   return { company: '', vertical: vk, cur: 'GBP', fx: 1, drivers: d, m365: 'E5', licensed: d.seats, p2Servers: d.winServers + d.dcs, sources, soar,
     levers: { filterPct: 0, retention: v.ret, growth: 15, spike: 1.5, rho: 0.5, spread: 1, scenario: 'exp' }, soc: { coverage: '24x7', tier: 'advanced' },
-    rates: defaultRates(), rateSource: 'default', svc: defaultSvc(), commercial: 'split' };
+    rates: defaultRates(), rateSource: 'default', svc: defaultSvc(), commercial: 'split',
+    baseline: { mode: 'greenfield', siem: 'splunk', unit: 'gbday', value: 0, evBytes: 500, factor: 1 },
+    deal: { term: 3, tier: 'auto', risk: 'trueup', capGb: null, overMode: 'billed', pricing: 'mixed' } };
 }
 
 /* ---------- Volumes ---------- */
+function baselineGb(b) { if (!b || b.mode !== 'migration') return 0; const v = num(b.value); if (v <= 0) return 0; return (b.unit === 'eps' ? v * (num(b.evBytes) || 500) * 86400 / 1e9 : v) * (num(b.factor) || 1); }
 function volumesFor(state, mode, q) { // mode: 'lo' | 'exp' | 'hi' | 'sample'; q = function(i)->quantile for sample
-  const v = VERTICALS[state.vertical] || VERTICALS.financial, f = clamp(num(state.levers.filterPct) / 100, 0, 0.6), out = [];
-  SOURCES.forEach((s, i) => {
+  const v = VERTICALS[state.vertical] || VERTICALS.financial, f = clamp(num(state.levers.filterPct) / 100, 0, 0.6), items = [], target = baselineGb(state.baseline);
+  SOURCES.forEach((s) => {
     const st = state.sources[s.id] || { on: false, tier: s.tier, override: null }, units = num(state.drivers[s.driver]);
     const mult = v.logMult * ((v.srcMult || {})[s.id] || 1) / MB, a = s.mb[0] * units * mult, b = s.mb[1] * units * mult, c = s.mb[2] * units * mult;
-    let lo = a, ex = b, hi = c;
-    if (st.override != null && st.override !== '' && num(st.override) >= 0 && b > 0) { const k = num(st.override) / b; lo = a * k; ex = num(st.override); hi = c * k; } else if (st.override != null && st.override !== '' && b === 0) { lo = ex = hi = num(st.override); }
-    const sp = num(state.levers.spread) || 1; lo = ex - (ex - lo) * sp; hi = ex + (hi - ex) * sp; if (lo < 0) lo = 0;
+    let lo = a, ex = b, hi = c, fixed = false;
+    if (st.override != null && st.override !== '' && num(st.override) >= 0 && b > 0) { const k = num(st.override) / b; lo = a * k; ex = num(st.override); hi = c * k; fixed = true; } else if (st.override != null && st.override !== '' && b === 0) { lo = ex = hi = num(st.override); fixed = true; }
+    items.push({ s, st, lo, ex, hi, fixed, on: st.on && st.tier !== 'none' && st.tier !== 'off' });
+  });
+  let k = 1; // migration baseline: sources you have not set yourself rebalance to the customer's existing total
+  if (target > 0) { let fx = 0, fl = 0; items.forEach((it) => { if (!it.on) return; if (it.fixed) fx += it.ex; else fl += it.ex; }); if (fl > 0) k = Math.max(0, target - fx) / fl; }
+  const sp0 = (num(state.levers.spread) || 1) * (target > 0 ? 0.5 : 1), out = [];
+  items.forEach((it, i) => {
+    let { lo, ex, hi } = it; if (!it.fixed) { lo *= k; ex *= k; hi *= k; }
+    const sp = sp0; lo = ex - (ex - lo) * sp; hi = ex + (hi - ex) * sp; if (lo < 0) lo = 0;
     let raw = mode === 'lo' ? lo : mode === 'hi' ? hi : mode === 'sample' ? tri(lo, clamp(3 * ex - lo - hi, lo, hi), hi, q(i)) : ex;
-    if (!st.on || st.tier === 'off') raw = 0;
-    const filtered = s.filterable && st.tier === 'analytics' ? raw * (1 - f) : raw;
-    out.push({ id: s.id, raw, filtered, tier: st.tier });
+    if (!it.st.on || it.st.tier === 'off') raw = 0;
+    const filtered = it.s.filterable && it.st.tier === 'analytics' ? raw * (1 - f) : raw;
+    out.push({ id: it.s.id, raw, filtered, tier: it.st.tier });
   });
   return out;
 }
@@ -218,7 +255,7 @@ function simulate(state, R, N) {
   let bi = 0; meanCost.forEach((c, i) => { if (c < meanCost[bi] - 1e-9) bi = i; });
   const rec = opts[bi], costs = samples.map((s) => monthly(s, rec, R, ret).total), gbs = samples.map((s) => s.analyticsBillable), tot = samples.map((s) => s.total);
   const lo = Math.min(...costs), hi = Math.max(...costs), bins = 24, hist = new Array(bins).fill(0); costs.forEach((c) => { hist[Math.min(bins - 1, Math.floor((c - lo) / ((hi - lo) || 1) * bins))]++; });
-  return { rec, N, cost: { p10: pct(costs, 0.1), p50: pct(costs, 0.5), p90: pct(costs, 0.9), min: lo, max: hi }, gb: { p10: pct(gbs, 0.1), p50: pct(gbs, 0.5), p90: pct(gbs, 0.9) }, tot: { p10: pct(tot, 0.1), p50: pct(tot, 0.5), p90: pct(tot, 0.9) }, hist, histLo: lo, histHi: hi, tierMean: opts.map((t, i) => ({ id: t.id, label: t.label, mean: meanCost[i] })) };
+  return { rec, N, cost: { p10: pct(costs, 0.1), p50: pct(costs, 0.5), p90: pct(costs, 0.9), min: lo, max: hi }, gb: { p10: pct(gbs, 0.1), p50: pct(gbs, 0.5), p90: pct(gbs, 0.9) }, tot: { p10: pct(tot, 0.1), p50: pct(tot, 0.5), p90: pct(tot, 0.9) }, hist, histLo: lo, histHi: hi, samples, tierMean: opts.map((t, i) => ({ id: t.id, label: t.label, mean: meanCost[i] })) };
 }
 
 /* ---------- SOAR + SOC ---------- */
@@ -268,14 +305,44 @@ function calibrateFromUsage(state, text, days) {
   return { sources: ids.length, days: span, totalGb: (mapped + unmapped) / MB / span, mappedGb: mapped / MB / span, unmappedGb: unmapped / MB / span };
 }
 
+
+/* ---------- Commercial quote: consumption (resold) + managed service + onboarding ---------- */
+const SVC_MODELS = { package: 'Fixed package', pergb: 'Per GB monitored', persource: 'Per log source', mixed: 'Package + usage' };
+function svcModels(R, state, sum, srcOn) {
+  const t = (state.soc.tier || 'advanced').toUpperCase(), cov = state.soc.coverage, base = R['PKG_' + t + '_MONTH'] || 0, ratio = base / (R.PKG_FOUNDATION_MONTH || 1);
+  const cm = cov === '8x5' ? R.COV_MULT_8X5 : cov === '12x5' ? R.COV_MULT_12X5 : 1, m = ratio * cm, gb = sum.analyticsGross + sum.basic + sum.aux + sum.lake;
+  const inc = { src: R['PKG_' + t + '_SRC'] || 0, gb: R['PKG_' + t + '_GB'] || 0, pb: R['PKG_' + t + '_PB'] || 0 }, over = { src: Math.max(0, srcOn - inc.src), gb: Math.max(0, gb - inc.gb) }, min = R.SVC_MIN_MONTH * m;
+  const pkg = base * cm;
+  return { package: pkg, pergb: Math.max(min, gb * R.PERGB_SVC_MONTH * m), persource: Math.max(min, srcOn * R.PERSRC_SVC_MONTH * m), mixed: pkg + over.src * R.MIX_SRC_MONTH * m + over.gb * R.MIX_GB_MONTH * m, inc, over, gb, srcOn, fits: over.src === 0 && over.gb === 0 };
+}
+function buildQuote(state, R, sum, mc, so, sc, srcOn, ret) {
+  const d = state.deal, up = R.MS_RESALE_UPLIFT, opts = tierOptions(R), term = [1, 3, 5].includes(+d.term) ? +d.term : 3, g = num(state.levers.growth) / 100;
+  const tier = d.tier === 'auto' ? mc.rec : (opts.find((o) => o.id === d.tier) || mc.rec), capGb = d.risk === 'cap' ? (num(d.capGb) > 0 ? num(d.capGb) : Math.ceil(mc.gb.p90 / 10) * 10) : null;
+  const cons = (s, tr) => { const m = monthly(s, tr, R, ret); let an = m.analytics, absorbed = 0;
+    if (capGb && s.analyticsBillable > capGb) { const capAn = DAYS * dailyAnalytics(capGb, tr), ex = DAYS * (s.analyticsBillable - capGb) * tr.eff; if (d.overMode === 'billed') an = capAn + ex * (1 + R.CAP_OVERAGE_UPLIFT); else { absorbed = Math.max(0, an - capAn); an = capAn; } }
+    return { bill: m.total - m.analytics + an, absorbed }; };
+  const exp = cons(sum, tier), msExp = (exp.bill + so.cost) * (1 + up), costs = mc.samples.map((s) => (cons(s, tier).bill + so.cost) * (1 + up)), abs = mc.samples.map((s) => cons(s, tier).absorbed);
+  const mean = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1), tdisc = term === 5 ? R.TERM_DISC_5Y : term === 3 ? R.TERM_DISC_3Y : R.TERM_DISC_1Y;
+  const models = svcModels(R, state, sum, srcOn), pbOn = so.rows.filter((x) => x.on).length, svcPre = models[d.pricing] != null ? models[d.pricing] : models.mixed, svcFee = svcPre * (1 - tdisc);
+  const onb = R.ONB_BASE + R.ONB_PER_SOURCE * srcOn + R.PLAYBOOK_BUILD * Math.max(0, pbOn - models.inc.pb);
+  const years = []; for (let y = 1; y <= term; y++) { const k = Math.pow(1 + g, y - 1), s2 = Object.assign({}, sum, { analyticsBillable: sum.analyticsBillable * k, analyticsGross: sum.analyticsGross * k, basic: sum.basic * k, aux: sum.aux * k, lake: sum.lake * k, total: sum.total * k });
+    const t2 = d.tier === 'auto' ? bestTier(s2, R, ret) : tier, ms = (monthly(s2, t2, R, ret).total + so.cost * k) * (1 + up), sv = (svcModels(R, state, s2, srcOn)[d.pricing] || 0) * (1 - tdisc);
+    years.push({ year: y, gb: s2.analyticsBillable, tier: t2.label, msMonth: ms, svcMonth: sv, ms: ms * 12, svc: sv * 12, onb: y === 1 ? onb : 0, total: ms * 12 + sv * 12 + (y === 1 ? onb : 0) }); }
+  const tcv = years.reduce((a, y) => a + y.total, 0), pct2 = (a, p) => pct(a, p);
+  const ratio = (R['PKG_' + (state.soc.tier || 'advanced').toUpperCase() + '_MONTH'] || 0);
+  return { term, tdisc, tier, capGb, risk: d.risk, overMode: d.overMode, pricing: d.pricing,
+    ms: { exp: msExp, p10: pct2(costs, 0.1), p90: pct2(costs, 0.9), annualVar: { p10: 12 * (pct2(costs, 0.1) - msExp), p90: 12 * (pct2(costs, 0.9) - msExp) }, uplift: up, raw: exp.bill + so.cost },
+    svc: { fee: svcFee, pre: svcPre, models, pbOn, label: SVC_MODELS[d.pricing] || SVC_MODELS.mixed },
+    onb, monthly: msExp + svcFee, y1: years[0].total, tcv, years, btExposure: { mean: mean(abs), p90: pct2(abs, 0.9) }, margin: svcFee > 0 ? 1 - sc.sub / svcFee : 0, baseline: baselineGb(state.baseline), rated: ratio > 0 };
+}
+
 /* ---------- Full computation ---------- */
 function compute(state) {
   const R = rateMap(state.rates), ret = num(state.levers.retention), exp = volumesFor(state, 'exp'), lo = volumesFor(state, 'lo'), hi = volumesFor(state, 'hi');
   const sum = summarise(state, exp), sumLo = summarise(state, lo), sumHi = summarise(state, hi), mc = simulate(state, R), rec = mc.rec;
   const opts = tierOptions(R), tierTable = opts.map((t) => ({ id: t.id, label: t.label, monthly: monthly(sum, t, R, ret).total, tierGb: t.gb, day: t.day, eff: t.eff }));
   const cost = monthly(sum, rec, R, ret), so = soar(state, R), sourcesOn = SOURCES.filter((s) => state.sources[s.id].on && state.sources[s.id].tier !== 'off').length, sc = soc(state, so, sourcesOn);
-  const msMonthly = cost.total + so.cost;
-  const cspMonthly = msMonthly * (1 + state.svc.cspMargin);
+  const quote = buildQuote(state, R, sum, mc, so, sc, sourcesOn, ret), msMonthly = quote.ms.exp, cspMonthly = msMonthly;
   // spike view under the recommended commitment
   const spikeAt = (k) => { const s2 = Object.assign({}, sum, { analyticsBillable: sum.analyticsBillable * k, basic: sum.basic * k, aux: sum.aux * k, lake: sum.lake * k }); return monthly(s2, rec, R, ret).total + so.cost; };
   const spike = { x1: spikeAt(1), x13: spikeAt(1.3), xs: spikeAt(num(state.levers.spike) || 1.5), x2: spikeAt(2), payg2: monthly(Object.assign({}, sum, { analyticsBillable: sum.analyticsBillable * 2 }), opts[0], R, ret).total + so.cost };
@@ -289,12 +356,12 @@ function compute(state) {
     return { id: s.id, name: s.name, g: s.g, on: st.on && st.tier !== 'off', tier: st.tier, units: num(state.drivers[s.driver]), unit: s.unit, lo: l.raw, exp: e.raw, hi: h.raw, billable: b, month, free: !!s.free, e5: !!s.e5, s2: !!s.s2, measured: !!st.measured }; });
   const cov = coverage(state), opt = optimise(state, R, { sum, exp });
   const avoided = Math.max(0, DAYS * (sum.free + sum.allow.e5 + sum.allow.s2) * opts[0].eff);
-  return { R, sum, sumLo, sumHi, mc, rec, tierTable, cost, soar: so, soc: sc, msMonthly, cspMonthly, spike, years, perSource, cov, opt, avoided, ret, rateSource: state.rateSource };
+  return { R, quote, sum, sumLo, sumHi, mc, rec, tierTable, cost, soar: so, soc: Object.assign({}, sc, { costFee: sc.fee, fee: quote.svc.fee, onb: quote.onb }), msMonthly, cspMonthly, spike, years, perSource, cov, opt, avoided, ret, rateSource: state.rateSource };
 }
 function sourcesCsv(state, r) {
   const L = [['Group', 'Source', 'Included', 'Destination', 'Units', 'Unit', 'GB/day low', 'GB/day expected', 'GB/day high'].join(',')];
   r.perSource.forEach((x) => L.push([GROUPS[x.g], '"' + x.name + '"', x.on ? 'Yes' : 'No', TIER_LABEL[x.tier], x.units, x.unit, x.lo.toFixed(2), x.exp.toFixed(2), x.hi.toFixed(2)].join(',')));
   return L.join('\n') + '\n';
 }
-return { DAYS, TIERS, TACT, GROUPS, SOURCES, SRC, VERTICALS, USECASES, PLAYBOOKS, COVERAGE, SVC_TIERS, TIER_LABEL, num, esc, clamp, defaultRates, rateMap, ratesFromCsv, ratesToCsv, parseCsv, typicalDrivers, defaultState, volumesFor, summarise, tierOptions, monthly, bestTier, simulate, soar, soc, coverage, optimise, compute, sourcesCsv, dailyAnalytics, calibrateFromUsage };
+return { DAYS, TIERS, TACT, GROUPS, SOURCES, SRC, VERTICALS, USECASES, PLAYBOOKS, COVERAGE, SVC_TIERS, TIER_LABEL, num, esc, clamp, defaultRates, rateMap, ratesFromCsv, ratesToCsv, parseCsv, typicalDrivers, defaultState, volumesFor, summarise, tierOptions, monthly, bestTier, simulate, soar, soc, coverage, optimise, compute, sourcesCsv, dailyAnalytics, calibrateFromUsage, buildQuote, svcModels, SVC_MODELS, baselineGb };
 });

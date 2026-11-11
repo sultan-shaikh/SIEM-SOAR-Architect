@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const C = window.SCore, $ = (id) => document.getElementById(id);
-const App = window.App = { C, $, S: { st: null, mode: 'internal', view: 'ms', step: 1, res: null, ai: null, touched: false, aiOk: true, usage: null } };
+const App = window.App = { C, $, S: { st: null, mode: 'internal', view: 'all', step: 1, res: null, ai: null, touched: false, aiOk: true, usage: null } };
 const S = App.S, esc = C.esc;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -70,9 +70,9 @@ App.refresh = function () { clearTimeout(timer); timer = setTimeout(App.recomput
 App.updateLive = function () {
   const r = S.res, st = S.st; if (!r) return; const sv = r.soc;
   $('lvGb').textContent = gb(r.sum.total) + ' GB/day'; $('lvGbR').textContent = 'likely ' + gb(r.mc.tot.p10) + ' to ' + gb(r.mc.tot.p90);
-  $('lvCost').textContent = money(r.msMonthly); $('lvCostR').textContent = 'likely ' + moneyK(r.mc.cost.p10 + r.soar.cost) + ' to ' + moneyK(r.mc.cost.p90 + r.soar.cost);
-  $('lvTier').textContent = r.rec.id === 'payg' ? 'Pay-as-you-go' : r.rec.label; $('lvTierR').textContent = r.rec.id === 'payg' ? 'no commitment' : 'billable ' + gb(r.sum.analyticsBillable) + ' GB/day';
-  $('lvSvc').textContent = money(sv.fee); $('lvSvcR').textContent = (sv.cov.label || '') + ' · ' + sv.tier.label.split(':')[0];
+  $('lvCost').textContent = money(r.msMonthly); $('lvCostR').textContent = 'likely ' + moneyK(r.quote.ms.p10) + ' to ' + moneyK(r.quote.ms.p90);
+  const qt = r.quote.tier; $('lvTier').textContent = qt.id === 'payg' ? 'Pay-as-you-go' : qt.label; $('lvTierR').textContent = qt.id === 'payg' ? 'no commitment' : 'billable ' + gb(r.sum.analyticsBillable) + ' GB/day';
+  $('lvSvc').textContent = money(sv.fee); $('lvSvcR').textContent = (sv.cov.label || '') + ' · ' + sv.tier.label.split(':')[0] + ' · ' + r.quote.svc.label;
   const fl = $('lvFlag'); const real = st.rateSource === 'csv'; fl.textContent = real ? 'Indicative · your rate card' : 'Indicative · placeholder rates'; fl.className = 'flagpill' + (real ? ' good' : '');
 };
 App.setMode = function (m) {

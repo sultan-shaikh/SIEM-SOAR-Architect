@@ -84,3 +84,14 @@ td input[type=number]{width:84px;padding:5px 7px;font-size:13.5px;text-align:rig
   #p5{display:block!important}.card2,.kpi{break-inside:avoid}.whatif{display:none}.watermark{display:block;position:fixed;top:45%;left:10%;font-size:90px;color:rgba(15,23,42,.05);transform:rotate(-25deg);font-weight:900;z-index:0}
   .sec{break-inside:avoid-page}
 }
+
+/* v2: commercial options, quote card, quote print */
+.cgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:8px}
+.qt td{padding:9px 8px;border-bottom:1px solid var(--s100)}.qt .tot td{background:var(--blue50,#eef4fb);font-size:16px}
+.tcard strong{color:var(--blue,#0078d4)}
+#quoteDoc{display:none}
+@media print{
+  body.pq>*:not(#quoteDoc){display:none!important}
+  body.pq #quoteDoc{display:block!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @page{size:A4;margin:14mm}
+}
