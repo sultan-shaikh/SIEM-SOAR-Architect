@@ -6,7 +6,7 @@ const srv = http.createServer((q, r) => {
 }).listen(0, async () => {
   const url = 'http://localhost:' + srv.address().port; const br = await chromium.launch(); const pg = await (await br.newContext({ acceptDownloads: true, viewport: { width: 1360, height: 900 } })).newPage(); const errs = [];
   pg.on('pageerror', (e) => errs.push('PE ' + e.message)); pg.on('console', (m) => m.type() === 'error' && errs.push('CE ' + m.text()));
-  await pg.goto(url); await pg.fill('#lockInput', 'ok'); await pg.click('#lockForm button'); await pg.waitForSelector('#intro:not([hidden])'); await pg.click('#introDemo');
+  await pg.goto(url); await pg.fill('#lockInput', 'ok'); await pg.click('#lockForm button'); await pg.waitForSelector('#intro:not([hidden])'); await pg.click('#introDemo'); console.log('demo ready:', await pg.evaluate(() => window.App.ready()));
   await pg.screenshot({ path: '/tmp/s1.png' });
   await pg.click('[data-set="baseline.mode=migration"]'); await pg.selectOption('[data-siem]', 'qradar'); await pg.fill('[data-path="baseline.value"]', '3000'); await pg.waitForTimeout(250); console.log('baseline:', await pg.textContent('#blCalc')); await pg.screenshot({ path: '/tmp/s1.png', fullPage: true });
   for (let i = 2; i <= 5; i++) { await pg.click('#stepper [data-step="' + i + '"]'); await pg.waitForTimeout(300); if (i === 4) { await pg.click('[data-set="deal.risk=cap"]'); await pg.click('[data-set="deal.term=5"]'); await pg.click('[data-set="deal.pricing=persource"]'); await pg.waitForTimeout(200); } await pg.screenshot({ path: '/tmp/s' + i + '.png', fullPage: true }); }

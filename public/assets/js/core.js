@@ -51,7 +51,7 @@ function defaultRates() {
   ];
   return r;
 }
-const rateMap = (rates) => { const m = {}; (rates || []).forEach((x) => { m[x.id] = num(x.price); }); return m; };
+const rateMap = (rates) => { const m = {}; defaultRates().forEach((x) => { m[x.id] = num(x.price); }); (rates || []).forEach((x) => { m[x.id] = num(x.price); }); return m; };
 function parseCsv(text) {
   const rows = []; let row = [], f = '', q = false; text = String(text).replace(/^﻿/, '');
   for (let i = 0; i < text.length; i++) { const c = text[i];

@@ -28,7 +28,7 @@ const ENV = [
 
 const SIEMS = { splunk: ['Splunk', 'gbday', 'Daily ingest licence (GB/day), or the 30-day average from the Licensing / Usage report.'], qradar: ['IBM QRadar', 'eps', 'Average events per second from Admin > System and License Management (or the EPS licence).'], xsiam: ['Palo Alto Cortex XSIAM', 'gbday', 'Daily ingestion in GB/day from the tenant usage dashboard.'], arcsight: ['ArcSight', 'eps', 'Average events per second from the Logger / ESM health dashboard.'], logrhythm: ['LogRhythm', 'eps', 'Average messages per second (MPS); treat as events per second.'], elastic: ['Elastic Security', 'gbday', 'Daily ingest volume from Stack Monitoring or the licence view.'], sumo: ['Sumo Logic', 'gbday', 'Daily ingest from Account > Data Management.'], secops: ['Google SecOps (Chronicle)', 'gbday', 'Daily ingestion from the ingestion metrics dashboard.'], other: ['Other SIEM / log platform', 'gbday', 'Use the average daily volume the customer sends to it.'] };
 /* ---------- navigation ---------- */
-App.goStep = function (n) { S.step = n; document.querySelectorAll('#stepper button').forEach((b) => { const k = +b.dataset.step; b.classList.toggle('on', k === n); b.classList.toggle('done', k < n); }); App.renderStep(n); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+App.goStep = function (n) { if (n > 1 && !App.ready()) { App.setErr('Choose an industry and enter the number of employees first.'); n = 1; } else if (n > 1) App.setErr(''); S.step = n; document.querySelectorAll('#stepper button').forEach((b) => { const k = +b.dataset.step; b.classList.toggle('on', k === n); b.classList.toggle('done', k < n); }); App.renderStep(n); window.scrollTo({ top: 0, behavior: 'smooth' }); };
 App.renderStep = function (n) {
   for (let i = 1; i <= 5; i++) $('p' + i).hidden = i !== n;
   if (n === 5) { App.recompute(); App.renderResults(); return; }
@@ -50,11 +50,11 @@ function baselineHtml(st) {
 /* ---------- step 1: customer ---------- */
 function step1() {
   const st = S.st, V = C.VERTICALS;
-  return '<h2>Tell us about the customer</h2><p class="lead">Start with the basics. We load a typical estate for their industry and size, which you can refine together in the next steps.</p>' +
+  return '<h2>Tell us about the customer</h2><p class="lead">Choose the industry and enter the headcount. We then load a typical estate for them, which you can refine together in the next steps.</p>' +
     '<div class="grid g2"><label class="f">Customer name<input type="text" data-path="company" placeholder="e.g. Acme Bank" value="' + esc(st.company) + '"></label>' +
-    '<label class="f">Employees / seats ' + hint('Roughly how many people work at the customer. Every estimate scales from this number; you can fine-tune individual items in step 2.') + '<input type="number" min="10" step="10" data-path="drivers.seats" data-num data-seats value="' + st.drivers.seats + '"></label></div>' +
+    '<label class="f">Employees / seats ' + hint('Roughly how many people work at the customer. Every estimate scales from this number; you can fine-tune individual items in step 2.') + '<input type="number" min="10" step="10" data-path="drivers.seats" data-num data-seats placeholder="e.g. 2500" value="' + (st.chosen && st.chosen.seats ? st.drivers.seats : '') + '"></label></div>' +
     '<div class="sec"><h3>Industry ' + hint('Different industries produce different amounts of security logs and keep them for different periods. Picking one loads typical figures; nothing is locked in.') + '</h3><div class="vcards" style="margin-top:8px">' +
-    Object.keys(V).map((k) => '<button type="button" class="vc' + (st.vertical === k ? ' on' : '') + '" data-vert="' + k + '"><span class="ic">' + V[k].icon + '</span><b>' + V[k].label + '</b><span>' + V[k].desc + '</span></button>').join('') + '</div></div>' +
+    Object.keys(V).map((k) => '<button type="button" class="vc' + (st.vertical === k && st.chosen && st.chosen.vertical ? ' on' : '') + '" data-vert="' + k + '"><span class="ic">' + V[k].icon + '</span><b>' + V[k].label + '</b><span>' + V[k].desc + '</span></button>').join('') + '</div></div>' +
     '<div class="sec"><h3>Starting point ' + hint('Greenfield means the customer has no SIEM yet, so we estimate from their estate. If they are moving from another SIEM, their current daily volume is the best starting figure we can get in a workshop. You can take it as it is or refine it source by source in step 3.') + '</h3><div class="seg" id="blSeg" style="margin:8px 0"><button type="button" data-set="baseline.mode=greenfield" class="' + (st.baseline.mode === 'migration' ? '' : 'on') + '">Greenfield: no SIEM today</button><button type="button" data-set="baseline.mode=migration" class="' + (st.baseline.mode === 'migration' ? 'on' : '') + '">Migrating from another SIEM</button></div>' + baselineHtml(st) + '</div>' +
     '<div class="sec"><h3>Microsoft 365 licensing ' + hint('Microsoft 365 E5 includes free Sentinel ingestion of eligible Microsoft logs: 5 MB per licensed user per day, pooled across the tenant. It can reduce the bill noticeably, so it is worth asking about.') + '</h3><div class="grid g2" style="margin-top:8px">' +
     '<label class="f">Licence level<select data-path="m365">' + [['E5', 'Microsoft 365 E5 (or E5 Security)'], ['E3', 'Microsoft 365 E3 / Business Premium'], ['none', 'Other / not sure']].map((o) => '<option value="' + o[0] + '"' + (st.m365 === o[0] ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select></label>' +
@@ -64,8 +64,8 @@ function step1() {
     '<div class="sec int"><h3>Currency</h3><div class="row"><div class="seg" id="curSeg"><button type="button" data-cur="GBP" class="' + (st.cur === 'GBP' ? 'on' : '') + '">£ GBP</button><button type="button" data-cur="USD" class="' + (st.cur === 'USD' ? 'on' : '') + '">$ USD</button></div><label class="small muted ' + (st.cur === 'USD' ? '' : 'hidden') + '" id="fxBox">1 GBP = <input type="number" step="0.01" min="0.1" style="width:80px;display:inline" data-path="fx" data-num value="' + st.fx + '"> USD</label></div></div>' + nav(1);
 }
 function applyVertical(k) {
-  const keep = { company: S.st.company, seats: S.st.drivers.seats, cur: S.st.cur, fx: S.st.fx, rates: S.st.rates, rateSource: S.st.rateSource, svc: S.st.svc, commercial: S.st.commercial, m365: S.st.m365, baseline: S.st.baseline, deal: S.st.deal, soc: S.st.soc };
-  const n = C.defaultState(k, keep.seats); Object.assign(n, { company: keep.company, cur: keep.cur, fx: keep.fx, rates: keep.rates, rateSource: keep.rateSource, svc: keep.svc, commercial: keep.commercial, m365: keep.m365, baseline: keep.baseline || n.baseline, deal: keep.deal || n.deal, soc: keep.soc || n.soc }); S.st = n; S.touched = false; S.usage = null;
+  const keep = { company: S.st.company, seats: S.st.drivers.seats, cur: S.st.cur, fx: S.st.fx, rates: S.st.rates, rateSource: S.st.rateSource, svc: S.st.svc, commercial: S.st.commercial, m365: S.st.m365, baseline: S.st.baseline, deal: S.st.deal, soc: S.st.soc, chosen: S.st.chosen };
+  const n = C.defaultState(k, keep.seats); Object.assign(n, { company: keep.company, cur: keep.cur, fx: keep.fx, rates: keep.rates, rateSource: keep.rateSource, svc: keep.svc, commercial: keep.commercial, m365: keep.m365, baseline: keep.baseline || n.baseline, deal: keep.deal || n.deal, soc: keep.soc || n.soc, chosen: Object.assign({}, keep.chosen || {}, { vertical: true }) }); S.st = n; S.touched = false; S.usage = null;
 }
 function reseat(seats) { const d = C.typicalDrivers(S.st.vertical, seats); S.st.drivers = d; S.st.licensed = d.seats; S.st.p2Servers = d.winServers + d.dcs; const v = C.VERTICALS[S.st.vertical]; if (v.ot < 0.3) { /* keep OT off for non-OT */ } }
 
@@ -167,6 +167,7 @@ function onInput(e) {
   const t = e.target, st = S.st;
   if (t.dataset.path) { let v = t.type === 'number' || t.dataset.num != null ? C.num(t.value) : t.value; if (t.dataset.path === 'levers.retention' || t.dataset.path === 'levers.spread') v = +t.value;
     App.setPath(st, t.dataset.path, v);
+    if (t.dataset.seats != null) { st.chosen = st.chosen || {}; st.chosen.seats = v >= 10; }
     if (t.dataset.seats != null && !S.touched) { reseat(v); } else if (t.dataset.seats != null) { st.licensed = Math.min(st.licensed, v) || v; }
     if (t.dataset.drv != null) { S.touched = true; const m = $('touchedMsg'); if (m) m.textContent = 'You have changed some values.'; }
     if (t.dataset.path === 'fx') { st.fx = v || 1.27; }
@@ -208,8 +209,8 @@ async function aiFill() {
     const keys = Object.keys(C.VERTICALS).join(', ');
     const prompt = 'You extract facts about a customer\'s IT estate for a Microsoft Sentinel sizing tool. Use only what the text states; omit anything not stated or clearly implied. Do not invent numbers.\nTEXT: """' + txt.slice(0, 2000) + '"""\nReturn ONLY JSON: {"company":string,"vertical":one of [' + keys + '] or "","seats":number,"m365":"E5"|"E3"|"none"|"","endpoints":number,"winServers":number,"dcs":number,"linuxServers":number,"firewalls":number,"saasApps":number,"azureSubs":number,"azureResources":number,"awsAccounts":number,"gcpProjects":number,"otSites":number}. Use 0 for unknown numbers.';
     const j = App.extractJSON(await App.generate(prompt, { max: 1200, temp: 0.1 })), st = S.st;
-    if (C.VERTICALS[j.vertical]) applyVertical(j.vertical); if (j.company) S.st.company = String(j.company).slice(0, 80); const seats = Math.round(C.clamp(C.num(j.seats), 0, 1000000));
-    if (seats >= 10) { S.st.drivers = C.typicalDrivers(S.st.vertical, seats); S.st.licensed = seats; S.st.p2Servers = S.st.drivers.winServers + S.st.drivers.dcs; }
+    if (C.VERTICALS[j.vertical]) applyVertical(j.vertical); S.st.chosen = S.st.chosen || {}; if (j.company) S.st.company = String(j.company).slice(0, 80); const seats = Math.round(C.clamp(C.num(j.seats), 0, 1000000));
+    if (seats >= 10) { S.st.chosen.seats = true; S.st.drivers = C.typicalDrivers(S.st.vertical, seats); S.st.licensed = seats; S.st.p2Servers = S.st.drivers.winServers + S.st.drivers.dcs; }
     let n = 0; ['endpoints', 'winServers', 'dcs', 'linuxServers', 'firewalls', 'saasApps', 'azureSubs', 'azureResources', 'awsAccounts', 'gcpProjects', 'otSites'].forEach((k) => { const v = Math.round(C.clamp(C.num(j[k]), 0, 1000000)); if (v > 0) { S.st.drivers[k] = v; n++; } });
     if (['E5', 'E3', 'none'].includes(j.m365)) S.st.m365 = j.m365; if (n) S.touched = true; S.st.p2Servers = Math.min(S.st.p2Servers, S.st.drivers.winServers + S.st.drivers.dcs);
     App.recompute(); App.renderStep(1); const m2 = $('aiMsg'); if (m2) m2.innerHTML = '✔ Filled in. Review the values in step 2. <span class="pill ai">✨ AI-read</span>';

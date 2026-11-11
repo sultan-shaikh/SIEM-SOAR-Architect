@@ -57,7 +57,8 @@ const bdg = (k) => ({ ai: '<span class="pill ai" title="Written by AI from the c
 Object.assign(App, { api, generate, extractJSON, safeHtml, money, moneyK, gb, fmt, setErr, hint, bdg, esc, sleep });
 
 /* ---------- state ---------- */
-App.newScenario = function (vk, seats) { S.st = C.defaultState(vk || 'financial', seats || 1000); S.touched = false; S.ai = null; S.usage = null; };
+App.newScenario = function (vk, seats, started) { S.st = C.defaultState(vk || 'financial', seats || 1000); S.st.chosen = { vertical: !!started, seats: !!started }; if (!started) S.st.m365 = 'none'; S.touched = false; S.ai = null; S.usage = null; };
+App.ready = () => !!(S.st && S.st.chosen && S.st.chosen.vertical && S.st.chosen.seats && C.num(S.st.drivers.seats) >= 10);
 App.dl = function (blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
 const getPath = (o, p) => p.split('.').reduce((x, k) => (x == null ? x : x[k]), o);
 const setPath = (o, p, v) => { const ks = p.split('.'); const last = ks.pop(); const t = ks.reduce((x, k) => x[k], o); t[last] = v; };
@@ -69,6 +70,7 @@ App.recompute = function () { try { S.res = C.compute(S.st); } catch (e) { setEr
 App.refresh = function () { clearTimeout(timer); timer = setTimeout(App.recompute, 90); };
 App.updateLive = function () {
   const r = S.res, st = S.st; if (!r) return; const sv = r.soc;
+  if (!App.ready()) { ['lvGb', 'lvCost', 'lvTier', 'lvSvc'].forEach((i) => { $(i).textContent = '–'; $(i + 'R').textContent = ''; }); $('lvGbR').textContent = 'choose an industry and size to start'; $('lvFlag').textContent = 'Not started'; $('lvFlag').className = 'flagpill'; return; }
   $('lvGb').textContent = gb(r.sum.total) + ' GB/day'; $('lvGbR').textContent = 'likely ' + gb(r.mc.tot.p10) + ' to ' + gb(r.mc.tot.p90);
   $('lvCost').textContent = money(r.msMonthly); $('lvCostR').textContent = 'likely ' + moneyK(r.quote.ms.p10) + ' to ' + moneyK(r.quote.ms.p90);
   const qt = r.quote.tier; $('lvTier').textContent = qt.id === 'payg' ? 'Pay-as-you-go' : qt.label; $('lvTierR').textContent = qt.id === 'payg' ? 'no commitment' : 'billable ' + gb(r.sum.analyticsBillable) + ' GB/day';
