@@ -57,7 +57,7 @@ const bdg = (k) => ({ ai: '<span class="pill ai" title="Written by AI from the c
 Object.assign(App, { api, generate, extractJSON, safeHtml, money, moneyK, gb, fmt, setErr, hint, bdg, esc, sleep });
 
 /* ---------- state ---------- */
-App.newScenario = function (vk, seats, started) { S.st = C.defaultState(vk || 'financial', seats || 1000); S.st.chosen = { vertical: !!started, seats: !!started }; if (!started) S.st.m365 = 'none'; S.touched = false; S.ai = null; S.usage = null; };
+App.newScenario = function (vk, seats, started) { S.st = C.defaultState(vk || 'financial', seats || 1000); if (App.PB) App.PB.applyTo(S.st); S.st.chosen = { vertical: !!started, seats: !!started }; if (!started) S.st.m365 = 'none'; S.touched = false; S.ai = null; S.usage = null; };
 App.ready = () => !!(S.st && S.st.chosen && S.st.chosen.vertical && S.st.chosen.seats && C.num(S.st.drivers.seats) >= 10);
 App.dl = function (blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
 const getPath = (o, p) => p.split('.').reduce((x, k) => (x == null ? x : x[k]), o);
@@ -75,10 +75,10 @@ App.updateLive = function () {
   $('lvCost').textContent = money(r.msMonthly); $('lvCostR').textContent = 'likely ' + moneyK(r.quote.ms.p10) + ' to ' + moneyK(r.quote.ms.p90);
   const qt = r.quote.tier; $('lvTier').textContent = qt.id === 'payg' ? 'Pay-as-you-go' : qt.label; $('lvTierR').textContent = qt.id === 'payg' ? 'no commitment' : 'billable ' + gb(r.sum.analyticsBillable) + ' GB/day';
   $('lvSvc').textContent = money(sv.fee); $('lvSvcR').textContent = (sv.cov.label || '') + ' · ' + sv.tier.label.split(':')[0] + ' · ' + r.quote.svc.label;
-  const fl = $('lvFlag'); const real = st.rateSource === 'csv'; fl.textContent = real ? 'Indicative · your rate card' : 'Indicative · placeholder rates'; fl.className = 'flagpill' + (real ? ' good' : '');
+  const fl = $('lvFlag'); const real = st.rateSource === 'csv'; fl.textContent = S.mode === 'customer' ? 'Indicative estimate' : real ? 'Indicative · ' + App.PB.short(st) : 'Indicative · placeholder rates'; fl.className = 'flagpill' + (real ? ' good' : ''); fl.title = S.mode === 'customer' ? '' : 'Click to manage the price book';
 };
 App.setMode = function (m) {
-  S.mode = m; document.body.classList.toggle('cust', m === 'customer'); $('btnMode').textContent = m === 'customer' ? '👁 Customer view' : '🔧 Internal view'; $('btnMode').classList.toggle('on', m === 'customer'); $('modeBanner').hidden = m !== 'customer';
+  S.mode = m; document.body.classList.toggle('cust', m === 'customer'); $('btnMode').textContent = m === 'customer' ? 'Customer view' : 'Internal view'; $('btnPB').hidden = m === 'customer'; $('btnMode').classList.toggle('on', m === 'customer'); $('modeBanner').hidden = m !== 'customer';
   document.querySelectorAll('.int').forEach((e) => { e.hidden = m === 'customer'; });
   const nh = document.querySelector('.nav').offsetHeight; document.documentElement.style.setProperty('--navh', nh + 'px');
   if (S.step === 5 && App.renderResults) App.renderResults(); if ([3, 4].includes(S.step)) App.renderStep(S.step);

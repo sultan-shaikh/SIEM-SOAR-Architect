@@ -10,7 +10,8 @@ async function unlock(code) {
   try { await App.api({ endpoint: 'models' }); } catch (e) { if (!/Access code/.test(e.message)) { $('lockErr').hidden = false; $('lockErr').textContent = e.message; } return; }
   $('lock').hidden = true; App.loadModels(); if (!seen()) { $('intro').hidden = false; mark(); }
 }
-function start() {
+async function start() {
+  try { await App.PB.load(); } catch (e) { /* placeholders */ }
   App.newScenario('financial', 1000, false); App.bindSteps(); App.recompute(); App.goStep(1); App.setMode('internal');
   $('lockForm').addEventListener('submit', (e) => { e.preventDefault(); unlock($('lockInput').value.trim()); });
   $('lockBtn').addEventListener('click', () => { App.setCode(''); App.showLock(''); });

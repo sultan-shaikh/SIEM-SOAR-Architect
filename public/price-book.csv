@@ -1,0 +1,49 @@
+Item,Description,Unit,Price_GBP
+PRICE_BOOK_NAME,"Microsoft list price (reference)",text,0
+PRICE_REGION,"UK South",text,0
+PRICE_BOOK_DATE,"2026-11-12",text,0
+ANALYTICS_PAYG_GB,"Analytics ingestion pay-as-you-go. UK South USD 5.38/GB x FX 0.76 [MICROSOFT EXPORT]",GB,4.0888
+TIER_100,"Commitment tier 100 GB/day, USD 370/day x FX [MICROSOFT EXPORT]",tier-day,281.2
+TIER_200,"Commitment tier 200 GB/day (price per day) scaled to UK South by the 100 GB/day tier ratio (x1.250) [ESTIMATE]",tier-day,532
+TIER_300,"Commitment tier 300 GB/day (price per day) scaled to UK South by the 100 GB/day tier ratio (x1.250) [ESTIMATE]",tier-day,760
+TIER_400,"Commitment tier 400 GB/day (price per day) scaled to UK South by the 100 GB/day tier ratio (x1.250) [ESTIMATE]",tier-day,988
+TIER_500,"Commitment tier 500 GB/day (price per day) scaled to UK South by the 100 GB/day tier ratio (x1.250) [ESTIMATE]",tier-day,1201.75
+TIER_1000,"Commitment tier 1000 GB/day (price per day) scaled to UK South by the 100 GB/day tier ratio (x1.250) [ESTIMATE]",tier-day,2356
+TIER_2000,"Commitment tier 2000 GB/day (price per day) scaled to UK South by the 100 GB/day tier ratio (x1.250) [ESTIMATE]",tier-day,4560
+TIER_5000,"Commitment tier 5000 GB/day (price per day) scaled to UK South by the 100 GB/day tier ratio (x1.250) [ESTIMATE]",tier-day,9804
+BASIC_GB,"Basic logs ingestion",GB,0.45
+AUX_GB,"Auxiliary logs ingestion",GB,0.1
+LAKE_INGEST_GB,"Sentinel data lake ingestion. UK South USD 0.0625/GB x FX [MICROSOFT EXPORT]",GB,0.0475
+LAKE_STORE_GB_MONTH,"Sentinel data lake storage, effective USD 0.008/GB-month x FX (derived from estimator quarterly growth; list shows 0.004) [MICROSOFT EXPORT, derived]",GB-month,0.00608
+RETENTION_GB_MONTH,"Analytics retention beyond 90 days. UK South USD 0.13 x FX [MICROSOFT EXPORT, unit assumed GB-month]",GB-month,0.0988
+LAKE_PROC_GB,"Sentinel data lake processing. UK South USD 0.125/GB x FX 0.76 [MICROSOFT EXPORT]",GB,0.095
+LAKE_QUERY_GB,"Sentinel data lake query. UK South USD 0.006/GB scanned x FX 0.76 [MICROSOFT EXPORT]",GB,0.00456
+LAKE_NB_HOUR,"Advanced data insights (notebook compute). UK South USD 0.188/hour x FX 0.76 [MICROSOFT EXPORT]",hour,0.14288
+LOGICAPP_ACTION,"Logic Apps (SOAR playbook) action execution",action,2
+MS_RESALE_UPLIFT,"Resale uplift on Microsoft consumption (0.08 = +8%) [PLACEHOLDER]",ratio,0.08
+CAP_OVERAGE_UPLIFT,"Uplift on overage above a cap when billed (0.10 = +10%) [PLACEHOLDER]",ratio,0.1
+PKG_FOUNDATION_MONTH,"Package: Foundation, 24x7 monthly fee [PLACEHOLDER]",month,4500
+PKG_ADVANCED_MONTH,"Package: Advanced, 24x7 monthly fee [PLACEHOLDER]",month,9500
+PKG_PREMIUM_MONTH,"Package: Premium, 24x7 monthly fee [PLACEHOLDER]",month,16000
+PKG_FOUNDATION_SRC,"Foundation: log sources included",sources,8
+PKG_ADVANCED_SRC,"Advanced: log sources included",sources,15
+PKG_PREMIUM_SRC,"Premium: log sources included",sources,25
+PKG_FOUNDATION_GB,"Foundation: monitored GB/day included",GB/day,50
+PKG_ADVANCED_GB,"Advanced: monitored GB/day included",GB/day,100
+PKG_PREMIUM_GB,"Premium: monitored GB/day included",GB/day,200
+PKG_FOUNDATION_PB,"Foundation: automation playbooks included",playbooks,2
+PKG_ADVANCED_PB,"Advanced: automation playbooks included",playbooks,6
+PKG_PREMIUM_PB,"Premium: automation playbooks included",playbooks,12
+COV_MULT_8X5,"Service price multiplier for business-hours cover (24x7 = 1)",ratio,0.55
+COV_MULT_12X5,"Service price multiplier for extended-hours cover (24x7 = 1)",ratio,0.75
+PERGB_SVC_MONTH,"Per-GB model: monthly fee per monitored GB/day (Foundation basis) [PLACEHOLDER]",GB/day-month,15
+PERSRC_SVC_MONTH,"Per-source model: monthly fee per log source (Foundation basis) [PLACEHOLDER]",source-month,200
+SVC_MIN_MONTH,"Per-GB / per-source models: minimum monthly fee (Foundation basis)",month,3000
+MIX_SRC_MONTH,"Mixed model: monthly fee per extra source above the package (Foundation basis)",source-month,150
+MIX_GB_MONTH,"Mixed model: monthly fee per extra GB/day above the package (Foundation basis)",GB/day-month,10
+ONB_BASE,"One-off onboarding: base fee [PLACEHOLDER]",one-off,6000
+ONB_PER_SOURCE,"One-off onboarding: per log source connected and tuned",one-off,750
+PLAYBOOK_BUILD,"One-off: each automation playbook above those included",one-off,900
+TERM_DISC_1Y,"Service fee discount for a 1-year term (0.05 = 5%)",ratio,0
+TERM_DISC_3Y,"Service fee discount for a 3-year term",ratio,0.05
+TERM_DISC_5Y,"Service fee discount for a 5-year term",ratio,0.08

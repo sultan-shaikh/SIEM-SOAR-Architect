@@ -23,4 +23,27 @@ const csv = C.ratesToCsv(st.rates), back = C.ratesFromCsv(csv); ok(back.updated 
 try { C.ratesFromCsv('a,b\n1,2'); ok(false, 'bad csv rejected'); } catch (e) { ok(true, 'bad rate card rejected'); }
 const m = C.defaultState('manufacturing', 2000); ok(m.sources.ot_ids.on, 'OT source on for manufacturing'); ok(!C.defaultState('retail', 500).sources.ot_ids.on, 'OT off for retail');
 for (const k of Object.keys(C.VERTICALS)) { const x = C.compute(C.defaultState(k, 2500)); ok(isFinite(x.msMonthly) && x.msMonthly > 0, 'vertical ' + k + ': ' + x.sum.total.toFixed(0) + ' GB/day, ' + x.rec.label + ', £' + x.msMonthly.toFixed(0)); }
+/* v2.4: lake meters, free lake %, Defender adoption, price-book meta, 30-day month */
+{
+  ok(C.DAYS === 30, '30-day month');
+  const a = C.defaultState('financial', 1000); Object.keys(a.sources).forEach((k) => { if (a.sources[k].tier === 'analytics' && a.sources[k].on && C.SRC[k].basicOk) { /* leave */ } });
+  const lakeSt = () => { const s = C.defaultState('financial', 1000); s.sources.firewall = Object.assign({}, s.sources.firewall, { on: true, tier: 'lake' }); return s; };
+  const firstLake = (s) => Object.keys(s.sources).find((k) => s.sources[k].on) ;
+  const s0 = C.defaultState('financial', 1000); const id = Object.keys(s0.sources).find((k) => s0.sources[k].on && s0.sources[k].tier === 'analytics' && !C.SRC[k].free);
+  s0.sources[id].tier = 'lake';
+  const base = C.compute(s0).cost.lake; ok(base > 0, 'lake cost present for a lake source (' + id + ')');
+  s0.lakeUse = 'none'; const none = C.compute(s0).cost.lake; ok(none < base, 'lake usage none < medium');
+  s0.lakeUse = 'heavy'; const heavy = C.compute(s0).cost.lake; ok(heavy > base, 'lake usage heavy > medium');
+  s0.lakeUse = 'medium'; s0.lakeFree = 50; const half = C.compute(s0).cost.lake; ok(Math.abs(half - base / 2) < base * 0.01, 'free 50% halves lake cost only');
+  const an1 = C.compute(s0).cost.analytics; s0.lakeFree = 0; ok(Math.abs(C.compute(s0).cost.analytics - an1) < 1e-6, 'free lake % does not touch analytics');
+  const p = C.defaultState('financial', 1000); p.p2Servers = 100; const full = C.compute(p).sum.allow.s2Pool; p.p2Pct = 10; ok(Math.abs(C.compute(p).sum.allow.s2Pool - full / 10) < 1e-9, 'Defender % of use scales pool');
+  const csv = C.ratesToCsv(C.defaultRates(), { name: 'Test book', region: 'UK West', date: '2026-01-02' }), rr = C.ratesFromCsv(csv);
+  ok(rr.meta.region === 'UK West' && rr.meta.name === 'Test book' && rr.meta.date === '2026-01-02', 'price-book meta round trip');
+  ok(rr.unknown.length === 0, 'meta rows are not counted as unknown');
+  const fs = require('fs'), repo = C.ratesFromCsv(fs.readFileSync(__dirname + '/../public/price-book.csv', 'utf8'));
+  ok(repo.meta.region === 'UK South' && repo.updated >= 40 && repo.unknown.length === 0, 'repo price-book.csv parses (region UK South, ' + repo.updated + ' rates)');
+  // benchmark: 100 GB/day all analytics on the 100 GB/day tier, no allowances, vs Microsoft estimator USD 370/day x 30 x 0.76
+  const R = C.rateMap(repo.rates), m = C.monthly({ analyticsBillable: 100, basic: 0, aux: 0, lake: 0 }, C.tierOptions(R)[1], R, 3);
+  ok(Math.abs(m.total - 370 * 30 * 0.76) < 1, 'matches Microsoft estimator tier price (' + m.total.toFixed(0) + ' vs ' + (370 * 30 * 0.76).toFixed(0) + ')');
+}
 process.exit(bad ? 1 : 0);

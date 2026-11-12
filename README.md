@@ -20,3 +20,8 @@ Estimator for Microsoft Sentinel (SIEM) + SOAR consumption cost and managed-serv
 - Price book: one CSV (Item,Description,Unit,Price_GBP) covering Microsoft rates, packages, onboarding, term discounts. Download the template in step 4 (Internal view), fill it in, import it. Rows tagged PLACEHOLDER are not real prices.
 - Output: branded budgetary quote (Budgetary quote button -> Save as PDF) and customer deck. The quote shows a DRAFT banner until a price book is imported.
 - Quote branding (name, logo, colour, contact) is saved in the browser, set in step 4.
+
+## v2.4
+- Price book: nav button + first-run banner; imported CSV is saved in the browser; `public/price-book.csv` in the repo auto-loads for everyone (browser import overrides). `PRICE_REGION`, `PRICE_BOOK_NAME`, `PRICE_BOOK_DATE` rows label the book and appear on quotes/decks.
+- Engine: 30-day month, data lake processing/query/notebook meters (usage presets), free-lake-sources % (lake only), Defender for Servers % in use.
+- UI: industry dropdown, enterprise styling pass.

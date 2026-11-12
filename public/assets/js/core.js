@@ -2,7 +2,9 @@
    Every number is computed here from inputs, the volume profiles and the rate card. The AI never prices or sizes. */
 (function (root, factory) { if (typeof module === 'object' && module.exports) module.exports = factory(); else root.SCore = factory(); })(typeof self !== 'undefined' ? self : this, function () {
 'use strict';
-const DAYS = 30.4, MB = 1024;
+const DAYS = 30, MB = 1024; // 30-day month, as Microsoft's estimator uses
+const LAKE_USE = { none: { l: 'None', p: 0, q: 0, n: 0 }, light: { l: 'Light', p: 0.3, q: 2, n: 0.05 }, medium: { l: 'Medium (Microsoft estimator default)', p: 0.99, q: 6.5, n: 0.27 }, heavy: { l: 'Heavy (threat hunting + notebooks)', p: 1, q: 15, n: 0.6 } };
+const lakeUseOf = (state) => LAKE_USE[(state && state.lakeUse) || 'medium'] || LAKE_USE.medium;
 const num = (v) => { const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isFinite(n) ? n : 0; };
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -19,6 +21,9 @@ function defaultRates() {
     { id: 'AUX_GB', desc: 'Auxiliary logs ingestion', unit: 'GB', price: 0.10 },
     { id: 'LAKE_INGEST_GB', desc: 'Sentinel data lake ingestion', unit: 'GB', price: 0.04 },
     { id: 'LAKE_STORE_GB_MONTH', desc: 'Sentinel data lake storage', unit: 'GB-month', price: 0.02 },
+    { id: 'LAKE_PROC_GB', desc: 'Sentinel data lake processing (per GB processed)', unit: 'GB', price: 0.095 },
+    { id: 'LAKE_QUERY_GB', desc: 'Sentinel data lake query (per GB scanned)', unit: 'GB', price: 0.0046 },
+    { id: 'LAKE_NB_HOUR', desc: 'Advanced data insights / notebook compute (per compute hour)', unit: 'hour', price: 0.143 },
     { id: 'RETENTION_GB_MONTH', desc: 'Analytics retention beyond the included period', unit: 'GB-month', price: 0.08 },
     { id: 'LOGICAPP_ACTION', desc: 'Logic Apps (SOAR playbook) action execution', unit: 'action', price: 0.00002 },
     { id: 'MS_RESALE_UPLIFT', desc: 'Resale uplift on Microsoft consumption (0.08 = +8%) [PLACEHOLDER]', unit: 'ratio', price: 0.08 },
@@ -64,12 +69,13 @@ function ratesFromCsv(text, base) {
   const rows = parseCsv(text); if (rows.length < 2) throw new Error('Rate card is empty');
   const h = rows[0].map((x) => x.toLowerCase().replace(/[^a-z0-9]/g, '')), iId = h.findIndex((x) => x === 'item' || x === 'id' || x === 'sku'), iP = h.findIndex((x) => /^price/.test(x));
   if (iId < 0 || iP < 0) throw new Error('Rate card needs "Item" and "Price_GBP" columns');
-  const out = (base || defaultRates()).map((x) => Object.assign({}, x)), seen = [], unknown = [];
-  rows.slice(1).forEach((r) => { const id = String(r[iId] || '').trim().toUpperCase(), p = num(r[iP]); const t = out.find((x) => x.id === id); if (t && p >= 0 && isFinite(p)) { t.price = p; seen.push(id); } else if (id) unknown.push(id); });
+  const iD = h.findIndex((x) => x === 'description' || x === 'desc'), out = (base || defaultRates()).map((x) => Object.assign({}, x)), seen = [], unknown = [], meta = {};
+  rows.slice(1).forEach((r) => { const id = String(r[iId] || '').trim().toUpperCase(), p = num(r[iP]); if (PB_META[id]) { const v = String((iD >= 0 ? r[iD] : '') || '').trim(); if (v) meta[PB_META[id]] = v.slice(0, 80); return; } const t = out.find((x) => x.id === id); if (t && p >= 0 && isFinite(p)) { t.price = p; seen.push(id); } else if (id) unknown.push(id); });
   if (!seen.length) throw new Error('No recognised items. Use the template (Item column must match).');
-  return { rates: out, updated: seen.length, unknown };
+  return { rates: out, updated: seen.length, unknown, meta };
 }
-const ratesToCsv = (rates) => 'Item,Description,Unit,Price_GBP\n' + rates.map((r) => [r.id, '"' + r.desc.replace(/"/g, '""') + '"', r.unit, r.price].join(',')).join('\n') + '\n';
+const PB_META = { PRICE_REGION: 'region', PRICE_BOOK_NAME: 'name', PRICE_BOOK_DATE: 'date' };
+const ratesToCsv = (rates, meta) => 'Item,Description,Unit,Price_GBP\n' + [['PRICE_BOOK_NAME', (meta && meta.name) || 'My price book'], ['PRICE_REGION', (meta && meta.region) || 'UK South'], ['PRICE_BOOK_DATE', (meta && meta.date) || new Date().toISOString().slice(0, 10)]].map((m) => m[0] + ',"' + m[1].replace(/"/g, '""') + '",text,0').join('\n') + '\n' + rates.map((r) => [r.id, '"' + r.desc.replace(/"/g, '""') + '"', r.unit, r.price].join(',')).join('\n') + '\n';
 
 /* ---------- Industry verticals: typical estate shape + log intensity (our assumptions) ---------- */
 const VERTICALS = {
@@ -192,7 +198,7 @@ function defaultState(vk, seats) {
   const sources = {}; SOURCES.forEach((s) => { const off = (s.off || (v.off || []).includes(s.id)) && !(s.id === 'ot_ids' && v.ot >= 0.3); sources[s.id] = { on: !off, tier: s.tier, override: null }; });
   const soar = {}; PLAYBOOKS.forEach((p) => { soar[p.id] = p.on; });
   return { company: '', vertical: vk, cur: 'GBP', fx: 1, drivers: d, m365: 'E5', licensed: d.seats, p2Servers: d.winServers + d.dcs, sources, soar,
-    levers: { filterPct: 0, retention: v.ret, growth: 15, spike: 1.5, rho: 0.5, spread: 1, scenario: 'exp' }, soc: { coverage: '24x7', tier: 'advanced' },
+    lakeUse: 'medium', lakeFree: 0, p2Pct: 100, levers: { filterPct: 0, retention: v.ret, growth: 15, spike: 1.5, rho: 0.5, spread: 1, scenario: 'exp' }, soc: { coverage: '24x7', tier: 'advanced' },
     rates: defaultRates(), rateSource: 'default', svc: defaultSvc(), commercial: 'split',
     baseline: { mode: 'greenfield', siem: 'splunk', unit: 'gbday', value: 0, evBytes: 500, factor: 1 },
     deal: { term: 3, tier: 'auto', risk: 'trueup', capGb: null, overMode: 'billed', pricing: 'mixed' } };
@@ -225,22 +231,24 @@ function volumesFor(state, mode, q) { // mode: 'lo' | 'exp' | 'hi' | 'sample'; q
 function tri(lo, m, hi, q) { if (hi <= lo) return m; m = clamp(m, lo, hi); const fc = (m - lo) / (hi - lo); return q < fc ? lo + Math.sqrt(q * (hi - lo) * (m - lo)) : hi - Math.sqrt((1 - q) * (hi - lo) * (hi - m)); }
 function allowances(state, vols) { // pooled benefit deductions on analytics-tier volume
   let e5Vol = 0, s2Vol = 0; vols.forEach((x) => { const s = SRC[x.id]; if (x.tier !== 'analytics') return; if (s.e5) e5Vol += x.filtered; if (s.s2) s2Vol += x.filtered; });
-  const e5Pool = state.m365 === 'E5' ? num(state.licensed) * 5 / MB : 0, s2Pool = num(state.p2Servers) * 0.5;
+  const e5Pool = state.m365 === 'E5' ? num(state.licensed) * 5 / MB : 0, s2Pool = num(state.p2Servers) * 0.5 * clamp(state.p2Pct == null ? 100 : num(state.p2Pct), 0, 100) / 100;
   return { e5: Math.min(e5Pool, e5Vol), s2: Math.min(s2Pool, s2Vol), e5Pool, s2Pool };
 }
 function summarise(state, vols) {
   const t = { analyticsGross: 0, free: 0, basic: 0, aux: 0, lake: 0, total: 0, filteredSaving: 0 };
   vols.forEach((x) => { const s = SRC[x.id]; t.total += x.raw; if (x.tier === 'analytics') { t.analyticsGross += x.filtered; t.filteredSaving += x.raw - x.filtered; if (s.free) t.free += x.filtered; } else if (x.tier === 'basic') t.basic += x.filtered; else if (x.tier === 'aux') t.aux += x.filtered; else if (x.tier === 'lake') t.lake += x.filtered; });
-  const al = allowances(state, vols); t.allow = al; t.analyticsBillable = Math.max(0, t.analyticsGross - t.free - al.e5 - al.s2); return t;
+  const al = allowances(state, vols); t.allow = al; t.analyticsBillable = Math.max(0, t.analyticsGross - t.free - al.e5 - al.s2); t.lakeFree = clamp(num(state.lakeFree) / 100, 0, 1); t.lakeUse = lakeUseOf(state); return t;
 }
 
 /* ---------- Pricing ---------- */
 function tierOptions(R) { return [{ id: 'payg', gb: 0, day: null, eff: R.ANALYTICS_PAYG_GB, label: 'Pay-as-you-go' }].concat(TIERS.map((g) => ({ id: 't' + g, gb: g, day: R['TIER_' + g], eff: R['TIER_' + g] / g, label: g + ' GB/day' }))); }
 const dailyAnalytics = (G, t) => (t.id === 'payg' ? G * t.eff : t.day + Math.max(0, G - t.gb) * t.eff);
+const lakePerGb = (R, ret, u) => R.LAKE_INGEST_GB + ret * R.LAKE_STORE_GB_MONTH + u.p * R.LAKE_PROC_GB + u.q * R.LAKE_QUERY_GB + u.n * R.LAKE_NB_HOUR;
 function monthly(sum, tier, R, ret) {
-  const a = DAYS * dailyAnalytics(sum.analyticsBillable, tier), b = DAYS * sum.basic * R.BASIC_GB, x = DAYS * sum.aux * R.AUX_GB, l = DAYS * sum.lake * R.LAKE_INGEST_GB;
-  const rt = sum.analyticsBillable * DAYS * Math.max(0, ret - 3) * R.RETENTION_GB_MONTH, ls = sum.lake * DAYS * ret * R.LAKE_STORE_GB_MONTH;
-  return { analytics: a, basic: b, aux: x, lake: l + ls, retention: rt, total: a + b + x + l + ls + rt };
+  const u = sum.lakeUse || LAKE_USE.medium, lk = sum.lake * (1 - (sum.lakeFree || 0));
+  const a = DAYS * dailyAnalytics(sum.analyticsBillable, tier), b = DAYS * sum.basic * R.BASIC_GB, x = DAYS * sum.aux * R.AUX_GB, l = DAYS * lk * lakePerGb(R, ret, u);
+  const rt = sum.analyticsBillable * DAYS * Math.max(0, ret - 3) * R.RETENTION_GB_MONTH;
+  return { analytics: a, basic: b, aux: x, lake: l, retention: rt, total: a + b + x + l + rt };
 }
 function bestTier(sum, R, ret) { const opts = tierOptions(R); let best = opts[0], bc = Infinity; opts.forEach((t) => { const c = monthly(sum, t, R, ret).total; if (c < bc - 1e-9) { bc = c; best = t; } }); return best; }
 
@@ -352,7 +360,7 @@ function compute(state) {
   let e5Tot = 0, s2Tot = 0, anBill = 0; exp.forEach((x) => { const s = SRC[x.id]; if (x.tier === 'analytics') { if (s.e5) e5Tot += x.filtered; if (s.s2) s2Tot += x.filtered; } });
   const bill = {}; exp.forEach((x) => { const s = SRC[x.id]; if (x.tier === 'analytics') { let b = x.filtered; if (s.free) b = 0; else { if (s.e5 && e5Tot > 0) b -= sum.allow.e5 * x.filtered / e5Tot; if (s.s2 && s2Tot > 0) b -= sum.allow.s2 * x.filtered / s2Tot; } bill[x.id] = Math.max(0, b); anBill += bill[x.id]; } else bill[x.id] = x.filtered; });
   const perSource = SOURCES.map((s, i) => { const st = state.sources[s.id], e = exp[i], l = lo[i], h = hi[i], b = bill[s.id] || 0; let month = 0;
-    if (st.on && st.tier !== 'off') { if (st.tier === 'analytics') month = anBill > 0 ? (cost.analytics + cost.retention) * b / anBill : 0; else if (st.tier === 'basic') month = b * DAYS * R.BASIC_GB; else if (st.tier === 'aux') month = b * DAYS * R.AUX_GB; else if (st.tier === 'lake') month = b * DAYS * (R.LAKE_INGEST_GB + ret * R.LAKE_STORE_GB_MONTH); }
+    if (st.on && st.tier !== 'off') { if (st.tier === 'analytics') month = anBill > 0 ? (cost.analytics + cost.retention) * b / anBill : 0; else if (st.tier === 'basic') month = b * DAYS * R.BASIC_GB; else if (st.tier === 'aux') month = b * DAYS * R.AUX_GB; else if (st.tier === 'lake') month = b * DAYS * (1 - (sum.lakeFree || 0)) * lakePerGb(R, ret, sum.lakeUse || LAKE_USE.medium); }
     return { id: s.id, name: s.name, g: s.g, on: st.on && st.tier !== 'off', tier: st.tier, units: num(state.drivers[s.driver]), unit: s.unit, lo: l.raw, exp: e.raw, hi: h.raw, billable: b, month, free: !!s.free, e5: !!s.e5, s2: !!s.s2, measured: !!st.measured }; });
   const cov = coverage(state), opt = optimise(state, R, { sum, exp });
   const avoided = Math.max(0, DAYS * (sum.free + sum.allow.e5 + sum.allow.s2) * opts[0].eff);
@@ -363,5 +371,5 @@ function sourcesCsv(state, r) {
   r.perSource.forEach((x) => L.push([GROUPS[x.g], '"' + x.name + '"', x.on ? 'Yes' : 'No', TIER_LABEL[x.tier], x.units, x.unit, x.lo.toFixed(2), x.exp.toFixed(2), x.hi.toFixed(2)].join(',')));
   return L.join('\n') + '\n';
 }
-return { DAYS, TIERS, TACT, GROUPS, SOURCES, SRC, VERTICALS, USECASES, PLAYBOOKS, COVERAGE, SVC_TIERS, TIER_LABEL, num, esc, clamp, defaultRates, rateMap, ratesFromCsv, ratesToCsv, parseCsv, typicalDrivers, defaultState, volumesFor, summarise, tierOptions, monthly, bestTier, simulate, soar, soc, coverage, optimise, compute, sourcesCsv, dailyAnalytics, calibrateFromUsage, buildQuote, svcModels, SVC_MODELS, baselineGb };
+return { DAYS, LAKE_USE, lakePerGb, TIERS, TACT, GROUPS, SOURCES, SRC, VERTICALS, USECASES, PLAYBOOKS, COVERAGE, SVC_TIERS, TIER_LABEL, num, esc, clamp, defaultRates, rateMap, ratesFromCsv, ratesToCsv, parseCsv, typicalDrivers, defaultState, volumesFor, summarise, tierOptions, monthly, bestTier, simulate, soar, soc, coverage, optimise, compute, sourcesCsv, dailyAnalytics, calibrateFromUsage, buildQuote, svcModels, SVC_MODELS, baselineGb };
 });

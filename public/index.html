@@ -14,6 +14,7 @@
 <script src="assets/js/app.js" defer></script>
 <script src="assets/js/steps.js" defer></script>
 <script src="assets/js/results.js" defer></script>
+<script src="assets/js/pricebook.js" defer></script>
 <script src="assets/js/quote.js" defer></script>
 <script src="assets/js/export.js" defer></script>
 <script src="assets/js/boot.js" defer></script>
@@ -28,6 +29,13 @@
     <p id="lockErr" class="err" hidden style="margin:0"></p>
     <button class="btn dark" type="submit">Unlock</button>
   </form>
+</div>
+
+<div id="pbModal" class="modal noprint" hidden role="dialog" aria-modal="true" aria-labelledby="pbTitle">
+  <div class="card">
+    <div class="row between"><h2 id="pbTitle" style="font-size:20px">Price book</h2><button id="pbClose" class="btn sm" type="button" aria-label="Close">Close</button></div>
+    <div id="pbBody"></div>
+  </div>
 </div>
 
 <div id="intro" class="modal noprint" hidden>
@@ -56,11 +64,12 @@
     <div class="brand"><span class="logo"><i></i><i></i><i></i><i></i></span><span class="bt">Sentinel Architect</span><span class="badge">SIEM &amp; SOAR estimator</span></div>
     <div class="row">
       <label class="navsel" title="AI model used for the optional written summary and quick-fill"><span>AI</span><select id="modelSelector"><option value="gemini-2.5-flash">gemini-2.5-flash</option></select></label>
-      <button id="btnMode" class="navbtn" type="button" title="Customer view hides internal assumptions, margins and the rate card">🔧 Internal view</button>
-      <button id="btnSave" class="navbtn" type="button">⬇ Save</button>
-      <label class="navbtn" for="fileLoad" style="cursor:pointer">⬆ Open</label><input id="fileLoad" type="file" accept=".json" hidden>
-      <button id="introBtn" class="navbtn" type="button">?</button>
-      <button id="lockBtn" class="navbtn" type="button">🔒</button>
+      <button id="btnPB" class="navbtn int" type="button" title="Load or check the price book used for every quote">Price book</button>
+      <button id="btnMode" class="navbtn" type="button" title="Customer view hides internal assumptions, margins and the price book">Internal view</button>
+      <button id="btnSave" class="navbtn" type="button">Save</button>
+      <label class="navbtn" for="fileLoad" style="cursor:pointer">Open</label><input id="fileLoad" type="file" accept=".json" hidden>
+      <button id="introBtn" class="navbtn" type="button" title="How it works">Help</button>
+      <button id="lockBtn" class="navbtn" type="button" title="Lock">Lock</button>
     </div>
   </div>
   <div id="modeBanner" class="modebanner" hidden>Customer view: internal assumptions, margins and the rate card are hidden.</div>
@@ -72,7 +81,7 @@
     <div class="lv"><span>Microsoft Sentinel / month</span><b id="lvCost">–</b><small id="lvCostR"></small></div>
     <div class="lv"><span>Best-fit commitment</span><b id="lvTier">–</b><small id="lvTierR"></small></div>
     <div class="lv" id="lvSvcBox"><span>Managed service / month</span><b id="lvSvc">–</b><small id="lvSvcR"></small></div>
-    <div class="lv flag"><span id="lvFlag" class="flagpill">Indicative</span></div>
+    <div class="lv flag"><button type="button" id="lvFlag" class="flagpill">Indicative</button></div>
   </div>
 </div>
 
@@ -90,7 +99,7 @@
   <section class="panel" id="p3" hidden></section>
   <section class="panel" id="p4" hidden></section>
   <section class="panel" id="p5" hidden></section>
-  <p class="tiny muted center noprint" style="margin:30px 0">Sentinel Architect v2.3 (blank start) · Sentinel Architect gives indicative estimates only. Microsoft prices, free-ingestion rules and product tiers change; check current terms before quoting.</p>
+  <p class="tiny muted center noprint" style="margin:30px 0">Sentinel Architect v2.4 · Sentinel Architect gives indicative estimates only. Microsoft prices, free-ingestion rules and product tiers change; check current terms before quoting.</p>
 </div>
 </body>
 </html>
